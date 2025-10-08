@@ -1,0 +1,59 @@
+from __future__ import annotations
+import importlib.util, sys, io, contextlib, pathlib, time
+
+BASE_DIR = pathlib.Path(__file__).resolve().parents[2]
+LEGACY_PATH = BASE_DIR / "legacy_cli" / "pipeline_evalnat.py"
+
+def _import_legacy():
+    spec = importlib.util.spec_from_file_location("legacy_pipeline", LEGACY_PATH)
+    if spec is None or spec.loader is None:
+        raise RuntimeError("Impossible de charger le pipeline legacy: " + str(LEGACY_PATH))
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+def _call_cli_like(mod, argv):
+    old_argv = sys.argv
+    sys.argv = argv
+    buf_out, buf_err = io.StringIO(), io.StringIO()
+    try:
+        with contextlib.redirect_stdout(buf_out), contextlib.redirect_stderr(buf_err):
+            main = getattr(mod, "main")
+            return main()
+    except SystemExit as se:
+        log_path = pathlib.Path.home() / "PublipostageEvalNat-web" / "tmp" / "legacy_last.log"
+        log_path.parent.mkdir(parents=True, exist_ok=True)
+        content = (
+            "[" + time.strftime("%F %T") + "] ARGV: " + repr(argv) + "\n\n"
+            "STDOUT:\n" + buf_out.getvalue() + "\n\n"
+            "STDERR:\n" + buf_err.getvalue() + "\n"
+        )
+        log_path.write_text(content, encoding="utf-8")
+        raise RuntimeError(
+            "Le pipeline legacy s'est arrêté (SystemExit %s)." % se.code
+            + "\n\nSTDOUT:\n" + buf_out.getvalue()
+            + "\n\nSTDERR:\n" + buf_err.getvalue()
+        )
+    finally:
+        sys.argv = old_argv
+
+def run_pipeline(pdf_path, csv_path, annee, classe, out_dir, no_split=False, message_text=None):
+    mod = _import_legacy()
+    argv = [
+        "legacy-pipeline",
+        "--input-pdf", str(pdf_path),
+        "--out-dir", str(out_dir),
+        "--classe", str(classe),
+        "--annee", str(annee),
+        # IMPORTANT: donner le CSV uploadé au paramètre --parents
+        "--parents", str(csv_path),
+        # On garde aussi --csv-in si le legacy l’utilise pour d’autres étapes
+        "--csv-in", str(csv_path),
+    ]
+    if no_split:
+        argv.append("--no-split")
+    if message_text:
+        argv.extend(["--message-text", message_text])
+    pathlib.Path(out_dir).mkdir(parents=True, exist_ok=True)
+    return _call_cli_like(mod, argv)
+

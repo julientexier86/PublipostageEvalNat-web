@@ -1,0 +1,42 @@
+from pathlib import Path
+import base64
+from typing import Optional
+
+SUBJECT_FMT = "Evaluations nationales - {nom} {prenom} ({classe})"
+
+def build_eml_bundle(out_dir: Path, classe: str, annee: str, message_text: Optional[str] = None):
+    eml_dir = out_dir / "eml"
+    eml_dir.mkdir(exist_ok=True)
+    # Corps par défaut si aucun message n'est fourni
+    default_body = (
+        "Madame, Monsieur,\n\n"
+        "Veuillez trouver en pièce jointe les comptes rendus des évaluations nationales. "
+        "Les enseignants y reviendront lors des remises de bulletins.\n\n"
+        f"Classe {classe} – Année {annee}\n"
+    )
+    # Normaliser le message saisi (CRLF/CR -> LF) et assurer une fin de ligne
+    body_template = (message_text or default_body).replace("\r\n", "\n").replace("\r", "\n").strip("\n") + "\n"
+    for pdf in out_dir.glob("*.pdf"):
+        parts = pdf.stem.split("_")
+        if len(parts) < 3:
+            continue
+        # adapter à ta nomenclature exacte
+        _, nom, prenom, *rest = parts
+        subject = SUBJECT_FMT.format(nom=nom, prenom=prenom, classe=classe)
+        body = body_template
+        b64 = base64.b64encode(pdf.read_bytes()).decode("ascii")
+        content = (
+            f"Subject: {subject}\n"
+            "MIME-Version: 1.0\n"
+            "Content-Type: multipart/mixed; boundary=BOUNDARY\n\n"
+            "--BOUNDARY\n"
+            "Content-Type: text/plain; charset=utf-8\n\n"
+            f"{body}\n"
+            "--BOUNDARY\n"
+            f"Content-Type: application/pdf; name=\"{pdf.name}\"\n"
+            "Content-Transfer-Encoding: base64\n"
+            f"Content-Disposition: attachment; filename=\"{pdf.name}\"\n\n"
+            f"{b64}\n"
+            "--BOUNDARY--\n"
+        )
+        (eml_dir / f"{pdf.stem}.eml").write_text(content, encoding="utf-8")

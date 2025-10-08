@@ -1,0 +1,13 @@
+import sys, os, traceback
+sys.path.insert(0, os.path.dirname(__file__))
+def _boot():
+    from a2wsgi import ASGIMiddleware
+    from app.main import app as asgi_app
+    return ASGIMiddleware(asgi_app)
+try:
+    application = _boot()
+except Exception:
+    traceback.print_exc()
+    def application(environ, start_response):
+        start_response('500 Internal Server Error',[('Content-Type','text/plain; charset=utf-8')])
+        return [b'App boot error']

@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Publipostage Éval Nat — Web</title>
+    <style>
+      body { font-family: -apple-system, system-ui, Segoe UI, Roboto, Helvetica, Arial, sans-serif; margin: 2rem; }
+      form { padding: 1rem; border: 1px solid #ddd; border-radius: 8px; max-width: 720px; }
+      label { display: block; margin: .75rem 0; }
+      input[type="text"], input[type="file"], select, textarea { width: 100%; max-width: 100%; }
+      button { margin-top: 1rem; padding: .6rem 1rem; border: 1px solid #333; border-radius: 6px; background: #fff; cursor: pointer; }
+      h1 { margin-top: 0; }
+      fieldset { border: 1px solid #ddd; border-radius: 6px; }
+      legend { padding: 0 .4rem; color: #333; }
+      .hint { margin:.25rem 0 .5rem 0; font-size:.9rem; color:#444 }
+    </style>
+  </head>
+  <body>
+    <h1>Publipostage Éval Nat — Web</h1>
+    <p>Charge un PDF d'évaluations et un CSV mail parents, choisis tes options, puis lance le traitement.</p>
+
+    <form action="{{ request.url_for('process') }}" method="post" enctype="multipart/form-data">
+      <label>PDF évaluations :
+        <input type="file" name="pdf" required />
+      </label>
+
+      <label>CSV mail parents :
+        <p class="hint">à extraire de SIECLE dans <strong>Exploitation → Extractions personnalisées → Adresse mail parents</strong> (par classe – choisissez la classe à exporter)</p>
+        <input type="file" name="csv_eleve" required />
+      </label>
+
+      <label>Année :
+        <input type="text" name="annee" value="2025-2026" required />
+      </label>
+
+      <label>Classe :
+        <input type="text" name="classe" placeholder="4B" required />
+      </label>
+
+      <label><input type="checkbox" name="mode_eml" checked /> Générer les .eml</label>
+      <label><input type="checkbox" name="no_split" /> Ne pas splitter (mode lot)</label>
+
+      <fieldset style="margin-top:1rem; padding:.5rem 1rem;">
+        <legend>OCR</legend>
+        <label><input type="checkbox" name="force_ocr" /> Forcer l’OCR</label>
+        <label>Langue OCR :
+          <select name="ocr_lang">
+            <option value="fra" selected>fr</option>
+            <option value="eng">en</option>
+            <option value="fra+eng">fr+en</option>
+          </select>
+        </label>
+        <label>Profil OCR :
+          <select name="ocr_profile">
+            <option value="balanced" selected>Équilibré</option>
+            <option value="fast">Rapide</option>
+            <option value="max">Précision max</option>
+          </select>
+        </label>
+      </fieldset>
+
+      <fieldset style="margin-top:1rem; padding:.5rem 1rem;">
+        <legend>Message aux parents (.eml &amp; CSV)</legend>
+        <p class="hint">Ce texte sera utilisé comme <em>CorpsMessage</em> dans le CSV et comme corps des e-mails (.eml).</p>
+        <textarea name="message_text" rows="7" placeholder="Texte libre pour les parents (plain-text)..."></textarea>
+      </fieldset>
+
+      <button type="submit">Lancer le publipostage</button>
+  <style>
+    .help-card{margin-top:1rem;border:1px solid #e5e7eb;border-radius:12px;padding:16px;background:#fafafa}
+    .help-card h3{margin:0 0 .5rem 0;font-size:1.15rem;display:flex;gap:.5rem;align-items:center}
+    .help-card p{margin:.25rem 0 .5rem 0;color:#374151}
+    .help-card ol{margin:.25rem 0 0 1.25rem;padding:0}
+    .help-card li{margin:.35rem 0}
+    .help-card .tips{font-size:.9rem;color:#374151;background:#eef2ff;border-left:3px solid #6366f1;padding:.6rem .75rem;border-radius:8px;margin-top:.75rem}
+    .help-card code{background:#111827;color:#f9fafb;padding:.15rem .35rem;border-radius:6px}
+  </style>
+
+  <div class="help-card" role="note" aria-label="Aide sur les fichiers EML">
+    <h3>📨 Comment utiliser les fichiers <code>.eml</code> générés</h3>
+    <p>Les fichiers <code>.eml</code> sont des <strong>brouillons de mails</strong> prêts à être envoyés : destinataires (parents), objet, corps du message et PDF personnalisé.</p>
+    <ol>
+      <li><strong>Téléchargez</strong> l’archive <code>.zip</code> en fin de traitement.</li>
+      <li><strong>Décompressez</strong> l’archive : ouvrez le dossier <code>eml/</code> (un fichier par élève).</li>
+      <li><strong>Importez dans votre messagerie</strong> :
+        <ul style="margin:.35rem 0 0 1rem">
+          <li><em>Thunderbird</em> : glissez-déposez les <code>.eml</code> dans le dossier <strong>Brouillons</strong>.</li>
+          <li><em>Outlook</em> / <em>Mail</em> : double-cliquez ou utilisez <em>Ouvrir avec</em> votre client mail.</li>
+        </ul>
+      </li>
+      <li><strong>Relisez</strong> et envoyez (vous pouvez modifier le texte si besoin).</li>
+    </ol>
+    <div class="tips">💡 <strong>Astuce :</strong> si le fichier ne s’ouvre pas, clic droit → <em>Ouvrir avec</em> → votre application de messagerie.</div>
+  </div>
+    </form>
+  </body>
+</html>

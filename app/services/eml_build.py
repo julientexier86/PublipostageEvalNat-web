@@ -1,0 +1,143 @@
+from __future__ import annotations
+import csv, re
+from pathlib import Path
+from email.message import EmailMessage
+from email.utils import make_msgid
+import base64
+
+EMAIL_COL_REGEX = re.compile(r'(courriel|e-?mail|mail)', re.IGNORECASE)
+
+def _read_parent_emails(csv_path: Path) -> dict[str, list[str]]:
+    """
+    Retourne un dict:  key = 'NOM PRENOM' (sans accents/majuscules conservées)
+                       value = [emails...]
+    """
+    def norm_name(n: str) -> str:
+        import unicodedata
+        s = unicodedata.normalize('NFKD', n)
+        s = ''.join(c for c in s if not unicodedata.combining(c))
+        return ' '.join(s.strip().split()).upper()
+
+    result: dict[str, list[str]] = {}
+    with csv_path.open('r', encoding='utf-8', newline='') as f:
+        # SIECLE export = séparateur ';'
+        reader = csv.DictReader(f, delimiter=';')
+        # Détecte toutes les colonnes emails
+        email_cols = [c for c in reader.fieldnames or [] if EMAIL_COL_REGEX.search(c or '')]
+        # colonnes possibles pour nom/prénom élève
+        name_cols = {
+            'nom': [c for c in reader.fieldnames or [] if re.search(r'(^|\b)nom(\b|$)', c, re.I) and 'repr' not in c.lower()],
+            'prenom': [c for c in reader.fieldnames or [] if re.search(r'(^|\b)pr[ée]nom(\b|$)', c, re.I) and 'repr' not in c.lower()],
+        }
+        for row in reader:
+            nom = ''
+            prenom = ''
+            if name_cols['nom']:
+                for c in name_cols['nom']:
+                    if (row.get(c) or '').strip():
+                        nom = (row.get(c) or '').strip()
+                        break
+            if name_cols['prenom']:
+                for c in name_cols['prenom']:
+                    if (row.get(c) or '').strip():
+                        prenom = (row.get(c) or '').strip()
+                        break
+            if not nom and not prenom:
+                # parfois l’export n’a qu’un seul champ élève
+                for c in (row or {}).keys():
+                    if re.search(r'(eleve|n[óo]m.*pr[ée]nom)', c, re.I):
+                        val = (row.get(c) or '').strip()
+                        if val:
+                            parts = val.split()
+                            if len(parts) >= 2:
+                                nom, prenom = parts[0], ' '.join(parts[1:])
+                        break
+
+            key = norm_name(f"{nom} {prenom}".strip())
+            if not key:
+                continue
+            emails = []
+            for c in email_cols:
+                val = (row.get(c) or '').strip()
+                if not val:
+                    continue
+                # découpe multi-emails si séparés par , ; ou espaces
+                for e in re.split(r'[;, \t]+', val):
+                    e = e.strip()
+                    if e and re.search(r'.+@.+\..+', e):
+                        emails.append(e)
+            if emails:
+                result.setdefault(key, [])
+                # unique en conservant l’ordre
+                for e in emails:
+                    if e not in result[key]:
+                        result[key].append(e)
+    return result
+
+def _norm_student_from_pdf(pdf_name: str) -> str:
+    """
+    À partir d'un nom de pdf comme '5A_BEILLEREAU_Elie_Mathematiques_2025-2026.pdf'
+    fabrique la clé 'BEILLEREAU ELIE'
+    """
+    stem = Path(pdf_name).stem
+    parts = stem.split('_')
+    # cherche motif CLASSE_NOM_PRENOM_...
+    if len(parts) >= 3:
+        nom = parts[1]
+        prenom = parts[2]
+        key = f"{nom} {prenom}"
+    else:
+        key = stem
+    # normalise comme _read_parent_emails
+    import unicodedata
+    s = unicodedata.normalize('NFKD', key)
+    s = ''.join(c for c in s if not unicodedata.combining(c))
+    return ' '.join(s.strip().split()).upper()
+
+def build_eml_bundle(out_dir: Path, classe: str, annee: str, message_text: str | None):
+    out_dir = Path(out_dir)
+    # Choisit la source parents
+    src = None
+    for cand in ('parents_merged.csv', 'parents_source.csv'):
+        p = out_dir / cand
+        if p.exists():
+            src = p
+            break
+    if not src:
+        print("[EML][WARN] Aucun CSV parents trouvé (parents_merged.csv/parents_source.csv). Brouillons sans destinataires.")
+        src_emails = {}
+    else:
+        src_emails = _read_parent_emails(src)
+
+    eml_dir = out_dir / "eml"
+    eml_dir.mkdir(parents=True, exist_ok=True)
+
+    pdfs = sorted(out_dir.glob("*.pdf"))
+    count_addr = 0
+    for pdf in pdfs:
+        stu_key = _norm_student_from_pdf(pdf.name)
+        to_list = src_emails.get(stu_key, [])
+        # construit le message
+        msg = EmailMessage()
+        msg['Subject'] = f"[ÉvalNat] {classe} – Résultats individuels – {annee}"
+        if to_list:
+            msg['To'] = ', '.join(to_list)
+            count_addr += len(to_list)
+        else:
+            # pour que le brouillon reste créable même sans adresse
+            msg['To'] = ''
+        msg['From'] = ''  # laissé vide pour import dans le client
+        body = message_text or "Bonjour,\n\nVeuillez trouver en pièce jointe le relevé individuel.\n\nCordialement."
+        msg.set_content(body)
+
+        # attache le PDF
+        with pdf.open('rb') as f:
+            data = f.read()
+        msg.add_attachment(data, maintype='application', subtype='pdf', filename=pdf.name)
+
+        # enregistre .eml
+        eml_path = eml_dir / (pdf.stem + ".eml")
+        with eml_path.open('wb') as f:
+            f.write(msg.as_bytes())
+
+    print(f"[EML] Brouillons générés: {len(pdfs)} | Adresses totales trouvées: {count_addr}")

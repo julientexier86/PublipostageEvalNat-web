@@ -1,0 +1,110 @@
+from pathlib import Path
+import base64
+from typing import Optional
+
+SUBJECT_FMT = "Evaluations nationales - {nom} {prenom} ({classe})"
+
+
+# ===== Fallback e-mails parents depuis CSV SIECLE =====
+import csv, unicodedata
+
+def _norm(s: str) -> str:
+    if s is None: return ""
+    s = str(s).strip()
+    s = unicodedata.normalize("NFKD", s)
+    s = "".join(ch for ch in s if not unicodedata.combining(ch))
+    return s.upper()
+
+def _find_parents_csv(out_dir: Path) -> Path|None:
+    # priorités: parents_*.csv (issue du merge), sinon parents_source.csv (copié par main.py)
+    candidates = list(out_dir.glob("parents*.csv")) + [out_dir/"parents_source.csv"]
+    for c in candidates:
+        if c.exists():
+            return c
+    # fallback: n'importe quel .csv dans out_dir
+    for c in out_dir.glob("*.csv"):
+        return c
+    return None
+
+def _read_csv_emails_map(csv_path: Path):
+    # retourne dict[(NOM,PRENOM)] = set([emails...])
+    emails_by_key = {}
+    if not csv_path or not csv_path.exists():
+        return emails_by_key
+    # détecte séparateur simple ; sinon ,
+    raw = csv_path.read_text(encoding="utf-8", errors="replace")
+    dialect = csv.Sniffer().sniff(raw[:1000], delimiters=";,	")
+    reader = csv.DictReader(raw.splitlines(), dialect=dialect)
+    # colonnes possibles
+    email_cols = [
+        "Courriel repr. légal","Courriel autre repr. légal","Courriel","Email","E-mail","Mail",
+        "Courriel repr. legal","Courriel autre repr. legal","Courriel representant legal",
+        "Adresse courriel","Adresse e-mail","Adresse mail",
+    ]
+    nom_cols = ["Nom","Nom de famille","Nom élève","Nom eleve","NOM"]
+    prenom_cols = ["Prénom","Prenom","Prénom 1","PRENOM"]
+    classe_cols = ["Division","Classe","Classe élève","CLASSE"]
+    for row in reader:
+        # clé par défaut: NOM+PRENOM ; on ne filtre pas par classe pour rester tolérant
+        nom = next((row.get(c) for c in nom_cols if c in row), "") or ""
+        prenom = next((row.get(c) for c in prenom_cols if c in row), "") or ""
+        key = (_norm(nom), _norm(prenom))
+        if not key[0] and not key[1]:
+            continue
+        emails = set()
+        for c in email_cols:
+            v = row.get(c)
+            if not v: continue
+            # éventuels séparateurs multiples
+            parts = re.split(r"[;, ]+", str(v))
+            for e in parts:
+                e = e.strip()
+                if len(e) >= 6 and "@" in e:
+                    emails.add(e)
+        if emails:
+            emails_by_key.setdefault(key, set()).update(emails)
+    return emails_by_key
+
+def _emails_for_student_from_csv(out_dir: Path, nom: str, prenom: str):
+    csv_path = _find_parents_csv(out_dir)
+    mapping = _read_csv_emails_map(csv_path) if csv_path else {}
+    key = (_norm(nom), _norm(prenom))
+    return sorted(mapping.get(key, []))
+# ===== fin fallback =====
+
+def build_eml_bundle(out_dir: Path, classe: str, annee: str, message_text: Optional[str] = None):
+    eml_dir = out_dir / "eml"
+    eml_dir.mkdir(exist_ok=True)
+    # Corps par défaut si aucun message n'est fourni
+    default_body = (
+        "Madame, Monsieur,\n\n"
+        "Veuillez trouver en pièce jointe les comptes rendus des évaluations nationales. "
+        "Les enseignants y reviendront lors des remises de bulletins.\n\n"
+        f"Classe {classe} – Année {annee}\n"
+    )
+    # Normaliser le message saisi (CRLF/CR -> LF) et assurer une fin de ligne
+    body_template = (message_text or default_body).replace("\r\n", "\n").replace("\r", "\n").strip("\n") + "\n"
+    for pdf in out_dir.glob("*.pdf"):
+        parts = pdf.stem.split("_")
+        if len(parts) < 3:
+            continue
+        # adapter à ta nomenclature exacte
+        _, nom, prenom, *rest = parts
+        subject = SUBJECT_FMT.format(nom=nom, prenom=prenom, classe=classe)
+        body = body_template
+        b64 = base64.b64encode(pdf.read_bytes()).decode("ascii")
+        content = (
+            f"Subject: {subject}\n"
+            "MIME-Version: 1.0\n"
+            "Content-Type: multipart/mixed; boundary=BOUNDARY\n\n"
+            "--BOUNDARY\n"
+            "Content-Type: text/plain; charset=utf-8\n\n"
+            f"{body}\n"
+            "--BOUNDARY\n"
+            f"Content-Type: application/pdf; name=\"{pdf.name}\"\n"
+            "Content-Transfer-Encoding: base64\n"
+            f"Content-Disposition: attachment; filename=\"{pdf.name}\"\n\n"
+            f"{b64}\n"
+            "--BOUNDARY--\n"
+        )
+        (eml_dir / f"{pdf.stem}.eml").write_text(content, encoding="utf-8")

@@ -1,0 +1,74 @@
+from __future__ import annotations
+from pathlib import Path
+import sys, importlib, runpy
+from types import ModuleType
+from typing import List, Optional
+
+LEGACY_MODULE = "legacy_cli.pipeline_evalnat"
+
+def _call_cli_like(mod, argv):
+    import sys, io, contextlib, pathlib, time
+    old_argv = sys.argv
+    sys.argv = argv
+    buf_out, buf_err = io.StringIO(), io.StringIO()
+    try:
+        with contextlib.redirect_stdout(buf_out), contextlib.redirect_stderr(buf_err):
+            main = getattr(mod, "main")
+            return main()
+        except SystemExit as se:
+        log_path = pathlib.Path.home() / "PublipostageEvalNat-web" / "tmp" / "legacy_last.log"
+        log_path.parent.mkdir(parents=True, exist_ok=True)
+        content = (
+            "[" + time.strftime('%F %T') + "] ARGV: " + repr(argv) + "
+
+"
+            "STDOUT:
+" + buf_out.getvalue() + "
+
+"
+            "STDERR:
+" + buf_err.getvalue() + "
+"
+        )
+        log_path.write_text(content, encoding="utf-8")
+        raise RuntimeError(
+            "Le pipeline legacy s'est arrêté (SystemExit %s).
+
+STDOUT:
+%s
+
+STDERR:
+%s"
+            % (se.code, buf_out.getvalue(), buf_err.getvalue())
+        )
+    finally:
+        sys.argv = old_argv
+
+def run_pipeline(
+    pdf_path: Path,
+    csv_path: Path,
+    annee: str,
+    classe: str,
+    out_dir: Path,
+    no_split: bool = False,
+    message_text: Optional[str] = None,
+) -> None:
+    out_dir.mkdir(parents=True, exist_ok=True)
+    argv: List[str] = [
+        "--classe", classe,
+        "--annee", annee,
+        "--out-dir", str(out_dir),
+        "--parents", str(csv_path),
+        "--input-pdf", str(pdf_path),
+    ]
+    if no_split:
+        argv.append("--no-split")
+    if message_text:
+        argv += ["--message-text", message_text]
+
+    try:
+        mod = importlib.import_module(LEGACY_MODULE)
+    except ModuleNotFoundError as e:
+        raise RuntimeError("Module legacy introuvable : vérifie legacy_cli/__init__.py et pipeline_evalnat.py") from e
+    print("[legacy argv]", " ".join(argv), file=sys.stderr)
+    _call_cli_like(mod, argv)
