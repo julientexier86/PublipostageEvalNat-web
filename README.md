@@ -136,7 +136,7 @@ Accès web :
 **Année :** 2025  
 **Objectif :** faciliter la gestion automatisée des évaluations nationales en établissement.  
 
-> “Automatiser pour redonner du temps au sens pédagogique.”
+> “Automatiser pour redonner du temps.”
 
 ---
 
