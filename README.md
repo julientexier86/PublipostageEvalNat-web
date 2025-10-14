@@ -113,7 +113,7 @@ touch tmp/restart.txt
 ```
 
 Accès web :  
-👉 [http://iyou8383.odns.fr/Publipostage](https://iyou8383.odns.fr/Publipostage)
+👉 [http://iyou8383.odns.fr/Publipostage](http://iyou8383.odns.fr/Publipostage)
 
 ---
 
@@ -154,7 +154,7 @@ MIT License © 2025 Julien Texier
 
 - 📧 [julien.texier@ac-poitiers.fr](mailto:julien.texier@ac-poitiers.fr)  
 - 🐙 [GitHub – julientexier86](https://github.com/julientexier86)  
-- 🌍 [Site O2switch – instance déployée](https://iyou8383.odns.fr/Publipostage)
+- 🌍 [Site O2switch – instance déployée](http://iyou8383.odns.fr/Publipostage)
 
 ---
 # PublipostageEvalNat-web
