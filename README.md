@@ -113,7 +113,7 @@ touch tmp/restart.txt
 ```
 
 Accès web :  
-👉 [https://iyou8383.odns.fr/Publipostage](https://iyou8383.odns.fr/Publipostage)
+👉 [http://iyou8383.odns.fr/Publipostage](https://iyou8383.odns.fr/Publipostage)
 
 ---
 
