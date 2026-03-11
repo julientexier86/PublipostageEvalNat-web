@@ -4,6 +4,7 @@ from pathlib import Path
 from email.message import EmailMessage
 from email.utils import make_msgid
 import base64
+import shutil
 
 EMAIL_COL_REGEX = re.compile(r'(courriel|e-?mail|mail)', re.IGNORECASE)
 
@@ -16,6 +17,7 @@ def _read_parent_emails(csv_path: Path) -> dict[str, list[str]]:
         import unicodedata
         s = unicodedata.normalize('NFKD', n)
         s = ''.join(c for c in s if not unicodedata.combining(c))
+        s = s.replace('-', ' ')
         return ' '.join(s.strip().split()).upper()
 
     result: dict[str, list[str]] = {}
@@ -92,6 +94,7 @@ def _norm_student_from_pdf(pdf_name: str) -> str:
     import unicodedata
     s = unicodedata.normalize('NFKD', key)
     s = ''.join(c for c in s if not unicodedata.combining(c))
+    s = s.replace('-', ' ')
     return ' '.join(s.strip().split()).upper()
 
 def build_eml_bundle(out_dir: Path, classe: str, annee: str, message_text: str | None):
@@ -139,5 +142,11 @@ def build_eml_bundle(out_dir: Path, classe: str, annee: str, message_text: str |
         eml_path = eml_dir / (pdf.stem + ".eml")
         with eml_path.open('wb') as f:
             f.write(msg.as_bytes())
+
+    # Ajout des scripts lanceurs pour ouverture TB facile
+    bat_script = Path("app/templates/_Ouvrir_Dans_Thunderbird.bat")
+    cmd_script = Path("app/templates/_Ouvrir_Dans_Thunderbird.command")
+    if bat_script.exists(): shutil.copy2(bat_script, out_dir / bat_script.name)
+    if cmd_script.exists(): shutil.copy2(cmd_script, out_dir / cmd_script.name)
 
     print(f"[EML] Brouillons générés: {len(pdfs)} | Adresses totales trouvées: {count_addr}")

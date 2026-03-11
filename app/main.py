@@ -6,7 +6,7 @@ from starlette.middleware.sessions import SessionMiddleware
 from starlette.templating import Jinja2Templates
 from pathlib import Path
 from tempfile import TemporaryDirectory, SpooledTemporaryFile
-import secrets, shutil, time, traceback, sys, os
+import secrets, shutil, time, traceback, sys, os, logging
 from typing import Optional
 
 from app.services.pipeline import run_pipeline
@@ -24,20 +24,20 @@ app.add_middleware(SessionMiddleware, secret_key=secrets.token_hex(32))
 app.mount("/static", StaticFiles(directory="static"), name="static")
 templates = Jinja2Templates(directory="app/templates")
 
-def _guard_size(up: UploadFile) -> SpooledTemporaryFile:
-    f = SpooledTemporaryFile(max_size=MAX_UPLOAD_MB * 1024 * 1024)
+logger = logging.getLogger(__name__)
+
+async def _guard_size(up: UploadFile, dest_path: Path) -> None:
     total = 0
-    while True:
-        chunk = up.file.read(1024 * 1024)
-        if not chunk:
-            break
-        total += len(chunk)
-        if total > MAX_UPLOAD_MB * 1024 * 1024:
-            f.close()
-            raise HTTPException(status_code=413, detail="Fichier trop volumineux")
-        f.write(chunk)
-    f.seek(0)
-    return f
+    with dest_path.open("wb") as f:
+        while True:
+            chunk = await up.read(1024 * 1024)
+            if not chunk:
+                break
+            total += len(chunk)
+            if total > MAX_UPLOAD_MB * 1024 * 1024:
+                dest_path.unlink(missing_ok=True)
+                raise HTTPException(status_code=413, detail="Fichier trop volumineux")
+            f.write(chunk)
 
 def _normalize_csv_utf8(csv_path: Path) -> None:
     raw = csv_path.read_bytes()
@@ -56,10 +56,70 @@ def upload_page(request: Request):
 def health():
     return {"status": "ok"}
 
+def _mask_token(token: Optional[str]) -> Optional[str]:
+    if not token or len(token) <= 8:
+        return token
+    return token[:5] + "****" + token[-4:]
+
 @app.get("/env")
 def show_env():
     keys = ["OCR_REMOTE_URL", "OCR_REMOTE_TOKEN", "OCR_FORCE_REMOTE"]
-    return JSONResponse({k: (os.environ.get(k) if k != "OCR_REMOTE_TOKEN" else (os.environ.get(k)[:5] + "****" + (os.environ.get(k)[-4:] if os.environ.get(k) and len(os.environ.get(k))>8 else ""))) for k in keys})
+    return JSONResponse({k: (_mask_token(os.environ.get(k)) if k == "OCR_REMOTE_TOKEN" else os.environ.get(k)) for k in keys})
+
+def process_publipostage(
+    in_dir: Path,
+    out_dir: Path,
+    src_pdf: Path,
+    src_csv: Path,
+    annee: str,
+    classe: str,
+    mode_eml: bool,
+    no_split: bool,
+    force_ocr: bool,
+    ocr_lang: str,
+    ocr_profile: str,
+    message_text: Optional[str]
+):
+    # Copie du CSV source dans out/ pour fallback EML
+    try:
+        shutil.copy2(src_csv, out_dir / "parents_source.csv")
+    except Exception as e:
+        logger.warning(f"Impossible de copier le CSV source: {e}")
+        
+    ocrd_pdf = in_dir / "source_ocr.pdf"
+    need_ocr = force_ocr or (not has_text_layer(src_pdf))
+    pdf_to_use = src_pdf
+    try:
+        if need_ocr:
+            try:
+                ocr_pdf(src_pdf, ocrd_pdf, lang=ocr_lang, profile=ocr_profile)
+                pdf_to_use = ocrd_pdf
+            except Exception as _ocr_err:
+                logger.warning(f"[OCR] échec OCR -> usage du PDF d'origine: {_ocr_err}")
+
+        run_pipeline(
+            pdf_path=pdf_to_use,
+            csv_path=src_csv,
+            annee=annee,
+            classe=classe,
+            out_dir=out_dir,
+            no_split=no_split,
+            message_text=message_text,
+        )
+
+        inject_message(out_dir=out_dir, message_text=message_text)
+
+        if mode_eml:
+            build_eml_bundle(out_dir=out_dir, classe=classe, annee=annee, message_text=message_text)
+
+    except Exception as e:
+        tb = traceback.format_exc()
+        logger.error(f"==== PIPELINE ERROR TRACEBACK ====\n{tb}")
+        tail = "\n".join(tb.strip().splitlines()[-20:])
+        raise HTTPException(
+            status_code=400,
+            detail=f"Erreur pipeline ({e.__class__.__name__}): {e}\n\nTraceback (tail):\n{tail}"
+        )
 
 @app.post("/process", response_class=HTMLResponse)
 async def process(
@@ -82,54 +142,27 @@ async def process(
     in_dir.mkdir(parents=True, exist_ok=True)
     out_dir.mkdir(parents=True, exist_ok=True)
 
-    pdf_buf = _guard_size(pdf)
-    csv_buf = _guard_size(csv_eleve)
     src_pdf = in_dir / "source.pdf"
     src_csv = in_dir / "eleves.csv"
-    src_pdf.write_bytes(pdf_buf.read()); pdf_buf.close()
-    src_csv.write_bytes(csv_buf.read()); csv_buf.close()
+    await _guard_size(pdf, src_pdf)
+    await _guard_size(csv_eleve, src_csv)
 
     _normalize_csv_utf8(src_csv)
 
-    # Copie du CSV source dans out/ pour fallback EML
-    try:
-        shutil.copy2(src_csv, out_dir / "parents_source.csv")
-    except Exception:
-        pass
-    ocrd_pdf = in_dir / "source_ocr.pdf"
-    need_ocr = force_ocr or (not has_text_layer(src_pdf))
-    pdf_to_use = src_pdf
-    try:
-        if need_ocr:
-            try:
-                ocr_pdf(src_pdf, ocrd_pdf, lang=ocr_lang, profile=ocr_profile)
-                pdf_to_use = ocrd_pdf
-            except Exception as _ocr_err:
-                print("[OCR][WARN] échec OCR -> usage du PDF d'origine:", _ocr_err, flush=True)
-
-        run_pipeline(
-            pdf_path=pdf_to_use,
-            csv_path=src_csv,
-            annee=annee,
-            classe=classe,
-            out_dir=out_dir,
-            no_split=no_split,
-            message_text=message_text,
-        )
-
-        inject_message(out_dir=out_dir, message_text=message_text)
-
-        if mode_eml:
-            build_eml_bundle(out_dir=out_dir, classe=classe, annee=annee, message_text=message_text)
-
-    except Exception as e:
-        tb = traceback.format_exc()
-        print("\\n==== PIPELINE ERROR TRACEBACK ====\\n", tb, file=sys.stderr)
-        tail = "\\n".join(tb.strip().splitlines()[-20:])
-        raise HTTPException(
-            status_code=400,
-            detail=f"Erreur pipeline ({e.__class__.__name__}): {e}\\n\\nTraceback (tail):\\n{tail}"
-        )
+    process_publipostage(
+        in_dir=in_dir,
+        out_dir=out_dir,
+        src_pdf=src_pdf,
+        src_csv=src_csv,
+        annee=annee,
+        classe=classe,
+        mode_eml=mode_eml,
+        no_split=no_split,
+        force_ocr=force_ocr,
+        ocr_lang=ocr_lang,
+        ocr_profile=ocr_profile,
+        message_text=message_text
+    )
 
     zip_path = session_dir / f"Publipostage_{classe}_{annee}.zip"
     shutil.make_archive(zip_path.with_suffix(""), "zip", out_dir)
@@ -155,7 +188,7 @@ def download(token: str, background_tasks: BackgroundTasks):
             if not zips:
                 raise HTTPException(status_code=404, detail="Expiré")
             zip_path = zips[0]
-            background_tasks.add_task(shutil.rmtree, session, True)
+            background_tasks.add_task(shutil.rmtree, session, ignore_errors=True)
             return FileResponse(
                 path=zip_path,
                 filename=zip_path.name,

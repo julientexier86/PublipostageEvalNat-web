@@ -1,98 +1,211 @@
 <!doctype html>
-<html lang="fr">
+<html lang="fr" class="antialiased text-slate-800 bg-slate-50">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Publipostage Éval Nat — Web</title>
+    <title>Publipostage ÉvalNat</title>
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Tailwind CSS (Généré et compilé en dur pour être infaillible) -->
+    <link rel="stylesheet" href="{{ request.url_for('static', path='styles.css') }}">
+    <style type="text/tailwindcss">
+      @layer utilities {
+        .glass-panel { @apply bg-white/80 backdrop-blur-md border border-slate-200/60 shadow-glass rounded-2xl; }
+        .form-input { @apply w-full rounded-lg border-slate-300 shadow-sm focus:border-brand-500 focus:ring focus:ring-brand-200 focus:ring-opacity-50 transition-all duration-200 py-2 px-3 border; }
+        .form-label { @apply block text-sm font-medium text-slate-700 mb-1.5; }
+        .form-checkbox { @apply rounded border-slate-300 text-brand-600 shadow-sm focus:border-brand-300 focus:ring focus:ring-brand-200 focus:ring-opacity-50 w-5 h-5 cursor-pointer; }
+      }
+    </style>
     <style>
-      body { font-family: -apple-system, system-ui, Segoe UI, Roboto, Helvetica, Arial, sans-serif; margin: 2rem; }
-      form { padding: 1rem; border: 1px solid #ddd; border-radius: 8px; max-width: 720px; }
-      label { display: block; margin: .75rem 0; }
-      input[type="text"], input[type="file"], select, textarea { width: 100%; max-width: 100%; }
-      button { margin-top: 1rem; padding: .6rem 1rem; border: 1px solid #333; border-radius: 6px; background: #fff; cursor: pointer; }
-      h1 { margin-top: 0; }
-      fieldset { border: 1px solid #ddd; border-radius: 6px; }
-      legend { padding: 0 .4rem; color: #333; }
-      .hint { margin:.25rem 0 .5rem 0; font-size:.9rem; color:#444 }
+      /* Fallback strict pour les icônes SVG si Tailwind est bloqué */
+      svg { max-width: 100%; height: auto; display: inline-block; }
+      svg.w-8, svg.h-8 { width: 32px !important; height: 32px !important; }
+      svg.w-6, svg.h-6 { width: 24px !important; height: 24px !important; }
+      svg.w-5, svg.h-5 { width: 20px !important; height: 20px !important; }
+      svg.w-4, svg.h-4 { width: 16px !important; height: 16px !important; }
     </style>
   </head>
-  <body>
-    <h1>Publipostage Éval Nat — Web</h1>
-    <p>Charge un PDF d'évaluations et un CSV mail parents, choisis tes options, puis lance le traitement.</p>
+  <body class="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-cyan-50 py-12 px-4 sm:px-6 lg:px-8 selection:bg-brand-200 selection:text-brand-900">
+    
+    <div class="max-w-3xl mx-auto">
+      
+      <!-- Header -->
+      <div class="text-center mb-10 transform transition-all duration-500 translate-y-0 opacity-100">
+        <div class="inline-flex items-center justify-center p-3 bg-brand-100 rounded-2xl mb-4 text-brand-600 shadow-sm">
+          <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+        </div>
+        <h1 class="text-4xl font-extrabold text-slate-900 tracking-tight">Publipostage <span class="text-transparent bg-clip-text bg-gradient-to-r from-brand-600 to-cyan-600">ÉvalNat</span></h1>
+        <p class="mt-3 text-lg text-slate-500 max-w-xl mx-auto">Générez des bulletins personnalisés et des brouillons d'e-mails pour vos parents d'élèves en un clin d'œil.</p>
+      </div>
 
-    <form action="{{ request.url_for('process') }}" method="post" enctype="multipart/form-data">
-      <label>PDF évaluations :
-        <input type="file" name="pdf" required />
-      </label>
+      <!-- Main Form Card -->
+      <div class="glass-panel p-6 sm:p-10 relative overflow-hidden">
+        <!-- Decoration blobb -->
+        <div class="absolute top-0 right-0 -mr-16 -mt-16 w-32 h-32 rounded-full bg-gradient-to-br from-brand-200 to-cyan-200 opacity-20 blur-2xl pointer-events-none"></div>
 
-      <label>CSV mail parents :
-        <p class="hint">à extraire de SIECLE dans <strong>Exploitation → Extractions personnalisées → Adresse mail parents</strong> (par classe – choisissez la classe à exporter)</p>
-        <input type="file" name="csv_eleve" required />
-      </label>
+        <form action="{{ request.url_for('process') }}" method="post" enctype="multipart/form-data" class="space-y-8 relative z-10">
+          
+          <!-- Sections Fichiers -->
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div class="group">
+              <label class="form-label font-semibold text-slate-800 flex items-center gap-2">
+                <svg class="w-5 h-5 text-rose-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path></svg>
+                PDF des évaluations
+              </label>
+              <div class="mt-2 flex justify-center px-4 pt-4 pb-4 border-2 border-slate-300 border-dashed rounded-xl group-hover:border-brand-400 group-hover:bg-brand-50 transition-colors bg-white">
+                <div class="space-y-1 text-center">
+                  <svg class="mx-auto h-8 w-8 text-slate-400 group-hover:text-brand-500 transition-colors" stroke="currentColor" fill="none" viewBox="0 0 48 48" aria-hidden="true">
+                    <path d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+                  </svg>
+                  <div class="flex text-sm text-slate-600 justify-center">
+                    <label class="relative cursor-pointer bg-white rounded-md font-medium text-brand-600 hover:text-brand-500 focus-within:outline-none focus-within:ring-2 focus-within:ring-offset-2 focus-within:ring-brand-500 p-1">
+                      <span>Sélectionner un fichier</span>
+                      <input type="file" name="pdf" required class="sr-only">
+                    </label>
+                  </div>
+                  <p class="text-xs text-slate-500">PDF global EvalNat (Max 200Mo)</p>
+                </div>
+              </div>
+            </div>
 
-      <label>Année :
-        <input type="text" name="annee" value="2025-2026" required />
-      </label>
+            <div class="group">
+              <label class="form-label font-semibold text-slate-800 flex items-center gap-2">
+                <svg class="w-5 h-5 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M3 14h18m-9-4v8m-7 0h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
+                CSV Mails Parents
+              </label>
+              <div class="mt-2 flex justify-center px-4 pt-4 pb-4 border-2 border-slate-300 border-dashed rounded-xl group-hover:border-emerald-400 group-hover:bg-emerald-50 transition-colors bg-white">
+                <div class="space-y-1 text-center">
+                  <svg class="mx-auto h-8 w-8 text-slate-400 group-hover:text-emerald-500 transition-colors" stroke="currentColor" fill="none" viewBox="0 0 48 48">
+                    <path d="M12 20h24M12 28h24M12 12h24M6 4h36a2 2 0 012 2v36a2 2 0 01-2 2H6a2 2 0 01-2-2V6a2 2 0 012-2z" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                  </svg>
+                  <div class="flex text-sm text-slate-600 justify-center">
+                    <label class="relative cursor-pointer bg-white rounded-md font-medium text-emerald-600 hover:text-emerald-500 focus-within:outline-none focus-within:ring-2 focus-within:ring-offset-2 focus-within:ring-emerald-500 p-1">
+                      <span>Sélectionner un CSV</span>
+                      <input type="file" name="csv_eleve" required class="sr-only">
+                    </label>
+                  </div>
+                  <p class="text-xs text-slate-500">Extrait de SIECLE</p>
+                </div>
+              </div>
+              <p class="mt-2 text-xs text-slate-500 leading-relaxed bg-slate-50 p-2 rounded border border-slate-100 italic">
+                <strong>Attention :</strong> Le fichier doit être extrait de SIECLE dans <br>
+                <span class="font-semibold text-emerald-600">Exploitation → Extractions personnalisées → Adresse mail parents</span><br>
+                (en choisissant la classe à exporter).
+              </p>
+            </div>
+          </div>
 
-      <label>Classe :
-        <input type="text" name="classe" placeholder="4B" required />
-      </label>
+          <hr class="border-slate-100">
 
-      <label><input type="checkbox" name="mode_eml" checked /> Générer les .eml</label>
-      <label><input type="checkbox" name="no_split" /> Ne pas splitter (mode lot)</label>
+          <!-- Méta infos -->
+          <div class="grid grid-cols-2 gap-6">
+            <div>
+              <label class="form-label">Année Scolaire</label>
+              <input type="text" name="annee" value="2025-2026" required class="form-input bg-white/50" />
+            </div>
+            <div>
+              <label class="form-label">Classe concernée</label>
+              <input type="text" name="classe" placeholder="ex: 4B" required class="form-input bg-white/50" />
+            </div>
+          </div>
 
-      <fieldset style="margin-top:1rem; padding:.5rem 1rem;">
-        <legend>OCR</legend>
-        <label><input type="checkbox" name="force_ocr" /> Forcer l’OCR</label>
-        <label>Langue OCR :
-          <select name="ocr_lang">
-            <option value="fra" selected>fr</option>
-            <option value="eng">en</option>
-            <option value="fra+eng">fr+en</option>
-          </select>
-        </label>
-        <label>Profil OCR :
-          <select name="ocr_profile">
-            <option value="balanced" selected>Équilibré</option>
-            <option value="fast">Rapide</option>
-            <option value="max">Précision max</option>
-          </select>
-        </label>
-      </fieldset>
+          <!-- Options générales -->
+          <div class="bg-slate-50 rounded-xl p-5 border border-slate-100">
+            <h3 class="text-sm font-semibold text-slate-800 uppercase tracking-wider mb-4">Options de traitement</h3>
+            <div class="space-y-4 sm:space-y-0 sm:flex sm:gap-6">
+              <label class="flex items-center gap-3 cursor-pointer group">
+                <input type="checkbox" name="mode_eml" checked class="form-checkbox" />
+                <span class="text-slate-700 font-medium group-hover:text-slate-900 transition-colors">Générer les brouillons .eml</span>
+              </label>
+              <label class="flex items-center gap-3 cursor-pointer group">
+                <input type="checkbox" name="no_split" class="form-checkbox text-amber-500 focus:ring-amber-200" />
+                <span class="text-slate-700 group-hover:text-slate-900 transition-colors">Ne pas décomposer (PDF unique)</span>
+              </label>
+            </div>
+          </div>
 
-      <fieldset style="margin-top:1rem; padding:.5rem 1rem;">
-        <legend>Message aux parents (.eml &amp; CSV)</legend>
-        <p class="hint">Ce texte sera utilisé comme <em>CorpsMessage</em> dans le CSV et comme corps des e-mails (.eml).</p>
-        <textarea name="message_text" rows="7" placeholder="Texte libre pour les parents (plain-text)..."></textarea>
-      </fieldset>
+          <!-- Accordion OCR -->
+          <details class="group bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden" open>
+            <summary class="flex justify-between items-center font-medium cursor-pointer list-none p-4 hover:bg-slate-50 transition-colors text-slate-800">
+              <div class="flex items-center gap-2">
+                <svg class="w-5 h-5 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path></svg>
+                Reconnaissance de texte (OCR)
+              </div>
+              <span class="transition group-open:rotate-180">
+                <svg fill="none" height="24" shape-rendering="geometricPrecision" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" viewBox="0 0 24 24" width="24"><path d="M6 9l6 6 6-6"></path></svg>
+              </span>
+            </summary>
+            
+            <div class="px-5 pt-2 pb-0 text-xs text-slate-500 italic">
+              L'OCR (Reconnaissance Optique de Caractères) lit le texte contenu dans le scan PDF (comme le nom de l'élève) 
+              pour permettre d'associer le bon bulletin au bon e-mail. Cochez "Forcer l'OCR" si les noms ne sont pas reconnus.
+            </div>
 
-      <button type="submit">Lancer le publipostage</button>
-  <style>
-    .help-card{margin-top:1rem;border:1px solid #e5e7eb;border-radius:12px;padding:16px;background:#fafafa}
-    .help-card h3{margin:0 0 .5rem 0;font-size:1.15rem;display:flex;gap:.5rem;align-items:center}
-    .help-card p{margin:.25rem 0 .5rem 0;color:#374151}
-    .help-card ol{margin:.25rem 0 0 1.25rem;padding:0}
-    .help-card li{margin:.35rem 0}
-    .help-card .tips{font-size:.9rem;color:#374151;background:#eef2ff;border-left:3px solid #6366f1;padding:.6rem .75rem;border-radius:8px;margin-top:.75rem}
-    .help-card code{background:#111827;color:#f9fafb;padding:.15rem .35rem;border-radius:6px}
-  </style>
+            <div class="p-5 border-t border-slate-100 bg-slate-50/50 flex flex-col sm:flex-row gap-5 mt-2">
+              <label class="flex items-center gap-3 cursor-pointer">
+                <input type="checkbox" name="force_ocr" class="form-checkbox text-indigo-600 focus:ring-indigo-200" />
+                <span class="text-sm text-slate-700">Forcer l’OCR</span>
+              </label>
+              <label class="flex-1">
+                <span class="block text-xs font-semibold text-slate-500 uppercase mb-1">Langue</span>
+                <select name="ocr_lang" class="form-input text-sm">
+                  <option value="fra" selected>Français</option>
+                  <option value="eng">Anglais</option>
+                  <option value="fra+eng">Bilingue (Fr+En)</option>
+                </select>
+              </label>
+              <label class="flex-1">
+                <span class="block text-xs font-semibold text-slate-500 uppercase mb-1">Qualité</span>
+                <select name="ocr_profile" class="form-input text-sm">
+                  <option value="balanced" selected>Équilibrée (Rapide et précis)</option>
+                  <option value="fast">Rapide (Qualité moindre)</option>
+                  <option value="max">Qualité maximale (Lent)</option>
+                </select>
+              </label>
+            </div>
+          </details>
 
-  <div class="help-card" role="note" aria-label="Aide sur les fichiers EML">
-    <h3>📨 Comment utiliser les fichiers <code>.eml</code> générés</h3>
-    <p>Les fichiers <code>.eml</code> sont des <strong>brouillons de mails</strong> prêts à être envoyés : destinataires (parents), objet, corps du message et PDF personnalisé.</p>
-    <ol>
-      <li><strong>Téléchargez</strong> l’archive <code>.zip</code> en fin de traitement.</li>
-      <li><strong>Décompressez</strong> l’archive : ouvrez le dossier <code>eml/</code> (un fichier par élève).</li>
-      <li><strong>Importez dans votre messagerie</strong> :
-        <ul style="margin:.35rem 0 0 1rem">
-          <li><em>Thunderbird</em> : glissez-déposez les <code>.eml</code> dans le dossier <strong>Brouillons</strong>.</li>
-          <li><em>Outlook</em> / <em>Mail</em> : double-cliquez ou utilisez <em>Ouvrir avec</em> votre client mail.</li>
-        </ul>
-      </li>
-      <li><strong>Relisez</strong> et envoyez (vous pouvez modifier le texte si besoin).</li>
-    </ol>
-    <div class="tips">💡 <strong>Astuce :</strong> si le fichier ne s’ouvre pas, clic droit → <em>Ouvrir avec</em> → votre application de messagerie.</div>
-  </div>
-    </form>
+          <!-- Zone de texte Message -->
+          <div>
+            <label class="form-label flex justify-between items-end">
+              <span class="font-semibold text-slate-800">Message aux parents (.eml &amp; CSV)</span>
+              <span class="text-xs text-slate-400 font-normal">Optionnel</span>
+            </label>
+            <p class="text-xs text-slate-500 mb-2">Ce texte constituera le corps de l'e-mail dans les brouillons .eml générés.</p>
+            <textarea name="message_text" rows="4" placeholder="Bonjour,\n\nVeuillez trouver ci-joint les résultats des évaluations nationales de votre enfant.\n\nCordialement," class="form-input bg-white/50 resize-y rounded-xl"></textarea>
+          </div>
+
+          <!-- Submit Button -->
+          <div class="pt-4">
+            <button type="submit" class="w-full flex justify-center items-center gap-2 py-3.5 px-4 border border-transparent rounded-xl shadow-sm text-lg font-semibold text-white bg-gradient-to-r from-brand-600 to-brand-500 hover:from-brand-500 hover:to-brand-400 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-500 transform transition-all active:scale-[0.98] hover:shadow-lg">
+              <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+              Lancer la génération
+            </button>
+          </div>
+
+        </form>
+      </div>
+
+      <!-- Help Card (Footer) -->
+      <div class="mt-8 bg-indigo-50/50 border border-indigo-100/60 rounded-2xl p-6 text-sm text-indigo-900 shadow-sm backdrop-blur-sm">
+        <h3 class="font-bold text-base flex items-center gap-2 mb-3 text-indigo-800">
+          <span>📮</span> Comment utiliser les fichiers .eml générés ?
+        </h3>
+        <ol class="list-decimal list-outside ml-5 space-y-2 opacity-90 marker:text-indigo-400">
+          <li><strong>Téléchargez et décompressez</strong> l’archive finale <code>.zip</code>.</li>
+          <li>Ouvrez le dossier <code>eml/</code> (vous y trouverez un fichier par élève).</li>
+          <li><strong>Importez dans votre client mail</strong> : double-cliquez (Outlook/Mail) ou glissez dans vos Brouillons (Thunderbird).</li>
+          <li><strong>Vérifiez et envoyez !</strong></li>
+        </ol>
+      </div>
+
+      <div class="text-center mt-10 text-slate-400 text-xs">
+        Publipostage ÉvalNat v2.0 &bull; Conçu pour faciliter le travail des équipes pédagogiques.
+      </div>
+      
+    </div>
+
   </body>
 </html>

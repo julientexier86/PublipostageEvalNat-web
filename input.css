@@ -1,0 +1,43 @@
+@import "tailwindcss";
+
+@source "./app/templates/**/*.html";
+@source "./app/**/*.py";
+
+@theme {
+  --font-sans: "Inter", sans-serif;
+  --color-brand-50: #eff6ff;
+  --color-brand-100: #dbeafe;
+  --color-brand-200: #bfdbfe;
+  --color-brand-300: #93c5fd;
+  --color-brand-400: #60a5fa;
+  --color-brand-500: #3b82f6;
+  --color-brand-600: #2563eb;
+  --color-brand-700: #1d4ed8;
+  --color-brand-800: #1e40af;
+  --color-brand-900: #1e3a8a;
+  --shadow-glass: 0 10px 40px -10px rgba(0,0,0,0.08);
+}
+
+@utility glass-panel {
+  @apply bg-white/80 backdrop-blur-md border border-slate-200/60 shadow-glass rounded-2xl;
+}
+
+@utility form-input {
+  @apply w-full rounded-lg border-slate-300 shadow-sm focus:border-brand-500 focus:ring focus:ring-brand-200/50 transition-all duration-200 py-2 px-3 border;
+}
+
+@utility form-label {
+  @apply block text-sm font-medium text-slate-700 mb-1.5;
+}
+
+@utility form-checkbox {
+  @apply rounded border-slate-300 text-brand-600 shadow-sm focus:border-brand-300 focus:ring focus:ring-brand-200/50 w-5 h-5 cursor-pointer;
+}
+
+svg { max-width: 100%; height: auto; display: inline-block; }
+svg.w-12, svg.h-12 { width: 48px; height: 48px; }
+svg.w-10, svg.h-10 { width: 40px; height: 40px; }
+svg.w-8, svg.h-8 { width: 32px; height: 32px; }
+svg.w-6, svg.h-6 { width: 24px; height: 24px; }
+svg.w-5, svg.h-5 { width: 20px; height: 20px; }
+svg.w-4, svg.h-4 { width: 16px; height: 16px; }

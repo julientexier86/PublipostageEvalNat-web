@@ -1,8 +1,61 @@
 <!doctype html>
-<html lang="fr">
-  <body>
-    <h2>Traitement terminé</h2>
-    <p>Téléchargement (~{{ approx_size_mb }} Mo), lien valide ~ {{ expires }}</p>
-    <a href="{{ download_url }}">Télécharger le ZIP</a>
+<html lang="fr" class="antialiased text-slate-800 bg-slate-50">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Traitement terminé — Publipostage ÉvalNat</title>
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Tailwind CSS (Généré et compilé en dur pour être infaillible) -->
+    <link rel="stylesheet" href="{{ request.url_for('static', path='styles.css') }}">
+    <style>
+      /* Fallback strict pour les icônes SVG si Tailwind est bloqué */
+      svg { max-width: 100%; height: auto; display: inline-block; }
+      svg.w-10, svg.h-10 { width: 40px !important; height: 40px !important; }
+      svg.w-5, svg.h-5 { width: 20px !important; height: 20px !important; }
+      svg.w-4, svg.h-4 { width: 16px !important; height: 16px !important; }
+    </style>
+  </head>
+  <body class="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-cyan-50 flex flex-col justify-center items-center py-12 px-4 sm:px-6 lg:px-8 selection:bg-brand-200 selection:text-brand-900">
+    
+    <div class="max-w-md w-full relative">
+      <!-- Background glow -->
+      <div class="absolute top-0 right-0 -mr-16 -mt-16 w-32 h-32 rounded-full bg-gradient-to-br from-green-200 to-emerald-200 opacity-30 blur-2xl pointer-events-none"></div>
+      
+      <div class="bg-white/80 backdrop-blur-md border border-slate-200/60 shadow-glass rounded-2xl p-8 text-center relative z-10 overflow-hidden">
+        
+        <!-- Icône succès animée -->
+        <div class="mx-auto flex items-center justify-center h-20 w-20 rounded-full bg-emerald-100 mb-6 shrink-0 relative">
+          <svg class="h-10 w-10 text-emerald-600 z-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"></path>
+          </svg>
+          <div class="absolute inset-0 rounded-full bg-emerald-100 animate-ping opacity-75"></div>
+        </div>
+
+        <h2 class="text-2xl font-bold text-slate-800 mb-2">Traitement terminé !</h2>
+        <p class="text-slate-500 mb-8 leading-relaxed">Vos documents ont été générés avec succès. L'archive (environ <span class="font-semibold text-slate-700">{{ approx_size_mb }} Mo</span>) est prête à être téléchargée.</p>
+
+        <a href="{{ download_url }}" class="group relative flex justify-center py-3.5 px-4 border border-transparent text-sm font-semibold rounded-xl text-white bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-500 hover:to-emerald-400 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500 shadow-md transform transition-all active:scale-[0.98] w-full items-center gap-2">
+          <svg class="w-5 h-5 group-hover:-translate-y-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+          Télécharger l'archive ZIP
+        </a>
+        
+        <div class="mt-5 text-sm text-slate-400 bg-slate-50 rounded-lg py-2 px-3 border border-slate-100 border-dashed">
+          <span class="inline-block bg-amber-100 text-amber-800 text-xs font-bold px-2 py-0.5 rounded mr-1">ATTENTION</span> 
+          Pour des raisons de sécurité, ce lien expirera dans <span class="font-medium text-slate-500">{{ expires }}</span>.
+        </div>
+        
+        <div class="mt-8 pt-6 border-t border-slate-100 flex justify-center">
+            <a href="/" class="text-sm font-medium text-brand-600 hover:text-brand-500 flex items-center gap-1 transition-colors">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path></svg>
+              Générer un autre publipostage
+            </a>
+        </div>
+
+      </div>
+    </div>
+    
   </body>
 </html>
