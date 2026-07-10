@@ -1,5 +1,7 @@
 # 📨 Publipostage Évaluations Nationales Web
 
+> Un guide pas à pas est disponible dans [docs/MODE_EMPLOI.md](docs/MODE_EMPLOI.md).
+
 ![Python](https://img.shields.io/badge/python-3.11-blue)
 ![FastAPI](https://img.shields.io/badge/FastAPI-Backend-009688)
 ![Status](https://img.shields.io/badge/Status-Stable-green)
@@ -18,6 +20,8 @@ Développée initialement pour un usage pédagogique et administratif, elle perm
 - **Interface web moderne** (FastAPI + Jinja2) hébergeable sur O2switch via Passenger.  
 - **Compatibilité multi-plateforme** : Windows, macOS, Linux.  
 - **Option OCR** pour les PDF scannés (via `tesseract`, si disponible).  
+- **Rapport de contrôle** `rapport_publipostage.csv` : pour chaque document, l'élève, les destinataires trouvés et les adresses à vérifier.
+- **OCR hybride** : moteur local prioritaire, avec un module OCR externe configurable en solution de secours.
 
 ---
 

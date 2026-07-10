@@ -2,8 +2,6 @@ from __future__ import annotations
 import csv, re
 from pathlib import Path
 from email.message import EmailMessage
-from email.utils import make_msgid
-import base64
 import shutil
 
 EMAIL_COL_REGEX = re.compile(r'(courriel|e-?mail|mail)', re.IGNORECASE)
@@ -97,7 +95,7 @@ def _norm_student_from_pdf(pdf_name: str) -> str:
     s = s.replace('-', ' ')
     return ' '.join(s.strip().split()).upper()
 
-def build_eml_bundle(out_dir: Path, classe: str, annee: str, message_text: str | None):
+def build_eml_bundle(out_dir: Path, classe: str, annee: str, message_text: str | None) -> dict[str, int]:
     out_dir = Path(out_dir)
     # Choisit la source parents
     src = None
@@ -117,6 +115,8 @@ def build_eml_bundle(out_dir: Path, classe: str, annee: str, message_text: str |
 
     pdfs = sorted(out_dir.glob("*.pdf"))
     count_addr = 0
+    matched = 0
+    report_rows = []
     for pdf in pdfs:
         stu_key = _norm_student_from_pdf(pdf.name)
         to_list = src_emails.get(stu_key, [])
@@ -126,6 +126,7 @@ def build_eml_bundle(out_dir: Path, classe: str, annee: str, message_text: str |
         if to_list:
             msg['To'] = ', '.join(to_list)
             count_addr += len(to_list)
+            matched += 1
         else:
             # pour que le brouillon reste créable même sans adresse
             msg['To'] = ''
@@ -142,6 +143,17 @@ def build_eml_bundle(out_dir: Path, classe: str, annee: str, message_text: str |
         eml_path = eml_dir / (pdf.stem + ".eml")
         with eml_path.open('wb') as f:
             f.write(msg.as_bytes())
+        report_rows.append({
+            "fichier": pdf.name,
+            "eleve": stu_key.title(),
+            "destinataires": ", ".join(to_list),
+            "statut": "prêt à envoyer" if to_list else "adresse introuvable",
+        })
+
+    with (out_dir / "rapport_publipostage.csv").open("w", encoding="utf-8-sig", newline="") as report:
+        writer = csv.DictWriter(report, fieldnames=["fichier", "eleve", "destinataires", "statut"], delimiter=";")
+        writer.writeheader()
+        writer.writerows(report_rows)
 
     # Ajout des scripts lanceurs pour ouverture TB facile
     bat_script = Path("app/templates/_Ouvrir_Dans_Thunderbird.bat")
@@ -150,3 +162,4 @@ def build_eml_bundle(out_dir: Path, classe: str, annee: str, message_text: str |
     if cmd_script.exists(): shutil.copy2(cmd_script, out_dir / cmd_script.name)
 
     print(f"[EML] Brouillons générés: {len(pdfs)} | Adresses totales trouvées: {count_addr}")
+    return {"matched": matched, "without_email": len(pdfs) - matched, "recipients": count_addr}
