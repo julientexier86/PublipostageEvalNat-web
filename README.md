@@ -4,6 +4,7 @@
 ![FastAPI](https://img.shields.io/badge/FastAPI-Backend-009688)
 ![Status](https://img.shields.io/badge/Status-Stable-green)
 ![License](https://img.shields.io/badge/License-MIT-lightgrey)
+![Type](https://img.shields.io/badge/Type-application%20web-0f766e?logo=fastapi&logoColor=white) ![Hosting](https://img.shields.io/badge/Hosting-serveur%20Python-3776AB?logo=python&logoColor=white)
 
 **Publipostage Évaluations Nationales Web** est une application web de génération automatique de fichiers PDF et d’e-mails (.eml) à partir des résultats des évaluations nationales (6e, 5e, 4e).  
 Développée initialement pour un usage pédagogique et administratif, elle permet de gagner un temps considérable dans la préparation et l’envoi des documents aux familles.
