@@ -15,6 +15,7 @@ from app.services.eml_build import build_eml_bundle
 from app.services.cleanup import schedule_dir_delete
 from app.services.ocr import has_text_layer, ocr_pdf
 from app.services.csv_message import inject_message
+from app.services.zimbra import build_zimbra_bundle
 
 MAX_UPLOAD_MB = 200
 TMP_ROOT = Path("/tmp/publipostage_sessions")
@@ -109,6 +110,7 @@ def process_publipostage(
         delivery = {"matched": 0, "without_email": 0, "recipients": 0}
         if mode_eml and not no_split:
             delivery = build_eml_bundle(out_dir=out_dir, classe=classe, annee=annee, message_text=message_text)
+            delivery["zimbra_bundle"] = build_zimbra_bundle(out_dir) is not None
 
         return {**stats, **delivery}
 
@@ -178,6 +180,7 @@ async def process(
         "approx_size_mb": round(zip_path.stat().st_size / (1024*1024), 2),
         "stats": stats,
         "eml_generated": mode_eml and not no_split,
+        "zimbra_generated": stats.get("zimbra_bundle", False),
         "expires": "30 minutes"
     })
 

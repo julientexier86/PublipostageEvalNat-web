@@ -111,7 +111,19 @@ Les fichiers `.eml` peuvent être ouverts par double-clic ou importés dans les 
 
 ### Webmails
 
-Les webmails n’importent généralement pas les fichiers `.eml` comme brouillons. Utilisez Thunderbird ou Outlook pour la vérification et l’envoi.
+Les webmails n’importent généralement pas les fichiers `.eml` comme brouillons. Pour Zimbra, utilisez l’archive dédiée décrite ci-dessous.
+
+### Zimbra
+
+Lorsque les brouillons `.eml` sont activés, l’archive ZIP contient aussi `zimbra_publipostage_evalnat.tgz`. Cette archive est conçue pour l’import de messages Zimbra ; elle ne contient aucun mot de passe ni paramètre de connexion.
+
+1. Décompressez d’abord l’archive ZIP téléchargée.
+2. Dans Zimbra, créez un dossier dédié, par exemple **Publipostage ÉvalNat**.
+3. Dans l’interface Modern, faites un clic droit sur ce dossier puis choisissez **Importer**. Dans l’interface Classic, utilisez **Préférences → Importer/Exporter**.
+4. Sélectionnez `zimbra_publipostage_evalnat.tgz` et importez-le dans le dossier dédié.
+5. Ouvrez un premier message de contrôle ; selon la version de Zimbra, placez-le dans Brouillons ou utilisez **Modifier comme nouveau** avant l’envoi.
+
+Cette méthode est la plus sûre car Zimbra gère l’authentification lui-même. Pour une intégration créant directement de vrais brouillons dans une boîte Zimbra, il faudrait ensuite configurer l’API Zimbra `SaveDraftRequest` avec une authentification de l’établissement ; ce n’est pas activé par défaut afin de ne jamais demander ni conserver les identifiants de messagerie.
 
 ## 6. Configuration technique
 
