@@ -1,5 +1,7 @@
 # 📨 Publipostage Évaluations Nationales Web
 
+> Un guide pas à pas est disponible dans [docs/MODE_EMPLOI.md](docs/MODE_EMPLOI.md).
+
 ![Python](https://img.shields.io/badge/python-3.11-blue)
 ![FastAPI](https://img.shields.io/badge/FastAPI-Backend-009688)
 ![Status](https://img.shields.io/badge/Status-Stable-green)
@@ -19,6 +21,9 @@ Développée initialement pour un usage pédagogique et administratif, elle perm
 - **Interface web moderne** (FastAPI + Jinja2) hébergeable sur O2switch via Passenger.  
 - **Compatibilité multi-plateforme** : Windows, macOS, Linux.  
 - **Option OCR** pour les PDF scannés (via `tesseract`, si disponible).  
+- **Rapport de contrôle** `rapport_publipostage.csv` : pour chaque document, l'élève, les destinataires trouvés et les adresses à vérifier.
+- **OCR hybride** : moteur local prioritaire, avec un module OCR externe configurable en solution de secours.
+- **Compatibilité Zimbra** : génération d’une archive `.tgz` importable dans Zimbra, sans enregistrer de mot de passe de messagerie.
 
 ---
 
@@ -40,6 +45,8 @@ Développée initialement pour un usage pédagogique et administratif, elle perm
 L’application produit :
 - Un dossier compressé `.zip` contenant les fichiers `.eml`  
 - Un fichier `parents_source.csv` pour vérification des correspondances
+- Un fichier `rapport_publipostage.csv` indiquant les documents prêts à envoyer et les adresses introuvables
+- Un fichier `zimbra_publipostage_evalnat.tgz` lorsque les brouillons `.eml` sont activés
 
 ---
 
@@ -52,8 +59,16 @@ L’application produit :
 2. **macOS / Apple Mail**  
    - Glissez les `.eml` dans Mail : ils apparaîtront comme brouillons prêts à envoyer.
 
-3. **Webmail (Gmail, O2switch, etc.)**  
-   - Non compatible avec `.eml` : ouvrez localement avec Thunderbird puis envoyez.
+3. **Zimbra**
+   - Décompressez l’archive ZIP puis utilisez `zimbra_publipostage_evalnat.tgz`.
+   - Créez un dossier **Publipostage ÉvalNat** dans Zimbra.
+   - Dans Zimbra Modern, faites un clic droit sur le dossier puis choisissez **Importer**. Dans Zimbra Classic, utilisez **Préférences → Importer/Exporter**.
+   - Importez le fichier `.tgz`, contrôlez un premier message, puis placez-le dans Brouillons ou utilisez **Modifier comme nouveau** selon votre version de Zimbra.
+
+4. **Autres webmails**
+   - Ouvrez les `.eml` localement avec Thunderbird ou Outlook avant envoi.
+
+> Le guide complet, incluant les précautions de sécurité et le dépannage Zimbra, est disponible dans [docs/MODE_EMPLOI.md](docs/MODE_EMPLOI.md).
 
 ---
 

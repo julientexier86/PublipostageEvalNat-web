@@ -1,23 +1,24 @@
-# app/services/ocr.py
+"""OCR avec moteur local prioritaire et secours externe configurable."""
 import os
 import subprocess
 from pathlib import Path
-from typing import Optional
 
 import requests
 
-REMOTE_URL = os.getenv("OCR_REMOTE_URL")  # e.g. https://ocr.example.com/ocr
+REMOTE_URL = os.getenv("OCR_REMOTE_URL")
 REMOTE_TOKEN = os.getenv("OCR_REMOTE_TOKEN")
-FORCE_REMOTE = os.getenv("OCR_FORCE_REMOTE", "0") in {"1", "true", "True", "yes"}
-REMOTE_TIMEOUT = int(os.getenv("OCR_REMOTE_TIMEOUT_S", "1200"))  # 20 minutes
+FORCE_REMOTE = os.getenv("OCR_FORCE_REMOTE", "0").lower() in {"1", "true", "yes"}
+REMOTE_TIMEOUT = int(os.getenv("OCR_REMOTE_TIMEOUT_S", "1200"))
 
 def has_text_layer(pdf_path: Path) -> bool:
     try:
-        from PyPDF2 import PdfReader
-        reader = PdfReader(str(pdf_path))
-        for page in reader.pages[:5]:
-            if (page.extract_text() or "").strip():
+        import fitz
+        document = fitz.open(pdf_path)
+        for page in document[:5]:
+            if page.get_text("text").strip():
+                document.close()
                 return True
+        document.close()
         return False
     except Exception:
         return False
@@ -51,26 +52,32 @@ def _ocr_local(input_pdf: Path, output_pdf: Path, lang: str, profile: str, timeo
         raise RuntimeError(proc.stderr.strip()[:500])
 
 def _ocr_remote(input_pdf: Path, output_pdf: Path, lang: str, profile: str, timeout_s: int) -> None:
+    """Contacte uniquement le service OCR explicitement renseigné par l'établissement."""
     if not REMOTE_URL:
-        raise RuntimeError("OCR distant non configuré (OCR_REMOTE_URL manquant).")
+        raise RuntimeError("OCR local indisponible et aucun service OCR de secours n'est configuré.")
     headers = {"Authorization": f"Bearer {REMOTE_TOKEN}"} if REMOTE_TOKEN else {}
-    with open(input_pdf, "rb") as f:
-        files = {"pdf": (input_pdf.name, f, "application/pdf")}
-        data = {"lang": lang, "profile": profile}
-        r = requests.post(REMOTE_URL, headers=headers, files=files, data=data, timeout=timeout_s)
-        if r.status_code != 200:
-            raise RuntimeError(f"OCR distant échec: {r.status_code} {r.text[:200]}")
-        output_pdf.write_bytes(r.content)
+    with input_pdf.open("rb") as source:
+        response = requests.post(
+            REMOTE_URL,
+            headers=headers,
+            files={"pdf": (input_pdf.name, source, "application/pdf")},
+            data={"lang": lang, "profile": profile},
+            timeout=timeout_s,
+        )
+    if response.status_code != 200:
+        raise RuntimeError(f"Le service OCR a répondu {response.status_code}: {response.text[:200]}")
+    if not response.content.startswith(b"%PDF-"):
+        raise RuntimeError("Le service OCR n'a pas renvoyé un PDF valide.")
+    output_pdf.write_bytes(response.content)
 
 def ocr_pdf(input_pdf: Path, output_pdf: Path, lang: str = "fra", profile: str = "balanced", timeout_s: int = 1800):
-    """Effectue l'OCR en local si possible, sinon bascule sur le service distant.
-    Le basculement peut être forcé avec OCR_FORCE_REMOTE=1.
-    """
+    """Utilise le local puis un secours externe si celui-ci est explicitement configuré."""
     if FORCE_REMOTE:
         _ocr_remote(input_pdf, output_pdf, lang, profile, min(timeout_s, REMOTE_TIMEOUT))
         return
     try:
         _ocr_local(input_pdf, output_pdf, lang, profile, timeout_s)
-    except FileNotFoundError:
-        # ocrmypdf/tesseract absents: on tente le distant
+    except (FileNotFoundError, RuntimeError) as local_error:
+        if not REMOTE_URL:
+            raise RuntimeError(f"OCR local indisponible : {local_error}") from local_error
         _ocr_remote(input_pdf, output_pdf, lang, profile, min(timeout_s, REMOTE_TIMEOUT))

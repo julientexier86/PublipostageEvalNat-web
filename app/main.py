@@ -1,12 +1,13 @@
 from __future__ import annotations
 from fastapi import FastAPI, UploadFile, File, Form, BackgroundTasks, HTTPException, Request
-from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
+from fastapi.responses import FileResponse, HTMLResponse
+from starlette.background import BackgroundTask
 from fastapi.staticfiles import StaticFiles
 from starlette.middleware.sessions import SessionMiddleware
 from starlette.templating import Jinja2Templates
 from pathlib import Path
-from tempfile import TemporaryDirectory, SpooledTemporaryFile
-import secrets, shutil, time, traceback, sys, os, logging
+from tempfile import mkdtemp
+import secrets, shutil, time, traceback, logging
 from typing import Optional
 
 from app.services.pipeline import run_pipeline
@@ -14,6 +15,7 @@ from app.services.eml_build import build_eml_bundle
 from app.services.cleanup import schedule_dir_delete
 from app.services.ocr import has_text_layer, ocr_pdf
 from app.services.csv_message import inject_message
+from app.services.zimbra import build_zimbra_bundle
 
 MAX_UPLOAD_MB = 200
 TMP_ROOT = Path("/tmp/publipostage_sessions")
@@ -39,6 +41,12 @@ async def _guard_size(up: UploadFile, dest_path: Path) -> None:
                 raise HTTPException(status_code=413, detail="Fichier trop volumineux")
             f.write(chunk)
 
+def _validate_uploads(pdf: UploadFile, csv_file: UploadFile, pdf_path: Path) -> None:
+    if not (pdf.filename or "").lower().endswith(".pdf") or pdf_path.read_bytes()[:5] != b"%PDF-":
+        raise HTTPException(status_code=400, detail="Le premier fichier doit être un PDF valide.")
+    if not (csv_file.filename or "").lower().endswith(".csv"):
+        raise HTTPException(status_code=400, detail="Le second fichier doit être un export CSV.")
+
 def _normalize_csv_utf8(csv_path: Path) -> None:
     raw = csv_path.read_bytes()
     try:
@@ -55,16 +63,6 @@ def upload_page(request: Request):
 @app.get("/health")
 def health():
     return {"status": "ok"}
-
-def _mask_token(token: Optional[str]) -> Optional[str]:
-    if not token or len(token) <= 8:
-        return token
-    return token[:5] + "****" + token[-4:]
-
-@app.get("/env")
-def show_env():
-    keys = ["OCR_REMOTE_URL", "OCR_REMOTE_TOKEN", "OCR_FORCE_REMOTE"]
-    return JSONResponse({k: (_mask_token(os.environ.get(k)) if k == "OCR_REMOTE_TOKEN" else os.environ.get(k)) for k in keys})
 
 def process_publipostage(
     in_dir: Path,
@@ -97,7 +95,7 @@ def process_publipostage(
             except Exception as _ocr_err:
                 logger.warning(f"[OCR] échec OCR -> usage du PDF d'origine: {_ocr_err}")
 
-        run_pipeline(
+        stats = run_pipeline(
             pdf_path=pdf_to_use,
             csv_path=src_csv,
             annee=annee,
@@ -109,8 +107,12 @@ def process_publipostage(
 
         inject_message(out_dir=out_dir, message_text=message_text)
 
-        if mode_eml:
-            build_eml_bundle(out_dir=out_dir, classe=classe, annee=annee, message_text=message_text)
+        delivery = {"matched": 0, "without_email": 0, "recipients": 0}
+        if mode_eml and not no_split:
+            delivery = build_eml_bundle(out_dir=out_dir, classe=classe, annee=annee, message_text=message_text)
+            delivery["zimbra_bundle"] = build_zimbra_bundle(out_dir) is not None
+
+        return {**stats, **delivery}
 
     except Exception as e:
         tb = traceback.format_exc()
@@ -136,7 +138,7 @@ async def process(
     ocr_profile: str = Form("balanced"),
     message_text: Optional[str] = Form(None),
 ):
-    session_dir = Path(TemporaryDirectory(dir=TMP_ROOT).name)
+    session_dir = Path(mkdtemp(prefix="session-", dir=TMP_ROOT))
     in_dir = session_dir / "in"
     out_dir = session_dir / "out"
     in_dir.mkdir(parents=True, exist_ok=True)
@@ -146,10 +148,11 @@ async def process(
     src_csv = in_dir / "eleves.csv"
     await _guard_size(pdf, src_pdf)
     await _guard_size(csv_eleve, src_csv)
+    _validate_uploads(pdf, csv_eleve, src_pdf)
 
     _normalize_csv_utf8(src_csv)
 
-    process_publipostage(
+    stats = process_publipostage(
         in_dir=in_dir,
         out_dir=out_dir,
         src_pdf=src_pdf,
@@ -175,6 +178,9 @@ async def process(
         "request": request,
         "download_url": request.url_for("download", token=token),
         "approx_size_mb": round(zip_path.stat().st_size / (1024*1024), 2),
+        "stats": stats,
+        "eml_generated": mode_eml and not no_split,
+        "zimbra_generated": stats.get("zimbra_bundle", False),
         "expires": "30 minutes"
     })
 
@@ -188,11 +194,11 @@ def download(token: str, background_tasks: BackgroundTasks):
             if not zips:
                 raise HTTPException(status_code=404, detail="Expiré")
             zip_path = zips[0]
-            background_tasks.add_task(shutil.rmtree, session, ignore_errors=True)
             return FileResponse(
                 path=zip_path,
                 filename=zip_path.name,
                 media_type="application/zip",
+                background=BackgroundTask(shutil.rmtree, session, ignore_errors=True),
                 headers={
                     "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0",
                     "Pragma": "no-cache"
